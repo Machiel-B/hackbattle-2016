@@ -1,15 +1,19 @@
 import sys
+import time
 from wit import Wit
 
 
 SESSION = 'make_this_random'
 main_context = {}
+config = {
+    'default_mood': 'angry'
+}
 
 if len(sys.argv) != 2:
     print("usage: python examples/quickstart.py <wit-token>")
     exit(1)
 access_token = sys.argv[1]
-
+listen_until = 0000
 
 def first_entity_value(entities, entity):
     if entity not in entities:
@@ -48,11 +52,14 @@ def merge(session_id, context, entities, msg):
             context['mood'] = intended_mood
         if(intent == 'cab' or intent == 'car' or intent == 'batmobile'):
             order_uber()
+
+    if(not 'mood' in context.keys()):
+	       context['mood'] = config['default_mood']
+
     return context
 
 def error(session_id, context, e):
     print(str(e))
-
 
 def change_lighting(session_id, context):
     print(str(context))
@@ -75,8 +82,20 @@ actions = {
 }
 
 client = Wit(access_token, actions)
+
 def talk(message=''):
     global main_context
-    print (message)
-    if(not message == ''):
+    global listen_until
+
+    print (message, 'sophie' in message.lower())
+
+    if('sophie' in message.lower()):
+        print('heard my name')
+        listen_until = time.time() + 20
+
+    if(not message == '' and  time.time() < listen_until):
         main_context = client.run_actions(SESSION, message, main_context)
+
+def bind_config(cfg={}):
+    global config
+    config = cfg
