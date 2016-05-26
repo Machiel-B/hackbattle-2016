@@ -33,7 +33,7 @@ def mood_from_intent(intent):
     if(intent == 'dance'):
         return 'happy'
     if(intent == 'cab' or intent == 'car' or intent == 'batmobile'):
-        return 'relaxing'
+        return 'bat_man'
     if(intent == 'chill'):
         return 'relaxing'
     return
@@ -69,6 +69,7 @@ def change_lighting(session_id, context):
         "love":"deep_red",
         "horny":"deep_red",
         "excited":"normal",
+        "happy": "normal",
         "relaxing":"sky_blue",
         "angry":"dark_green",
         "interested": "bright",
@@ -82,23 +83,29 @@ def change_lighting(session_id, context):
         "bright": (27000, 0, 254),
         "dark_blue": (45000, 254, 20)
     }
-    context['lighting'] = moods.get(context["mood"],"normal")
+    context['lighting'] = moods.get((context["mood"] or context["intent"]),"normal")
+    print(context["mood"])
     lightcontrol.setColor(*colour[context["lighting"]])
     return context
 
 def change_music(session_id, context):
     moods = {
         "love":["love"],
-        "horny":["porno", "love"],
+        "horny":["porno"],
         "excited":["dance", "house"],
+        "happy": ["dance", "house"],
         "relaxing":["chillout"],
         "angry":["metal"]
     }
-    jdata = json.load(open("config.json"))
+    jdata = json.loads(open("config.json").read().decode())
     genres = jdata["playlists"]
-    context['genre'] = choice(moods.get(context["mood"], "chill"))
+    print(genres)
+    print(context["mood"])
+    context['genre'] = choice(moods.get(context["mood"], ["chillout"]))
     deezer.stop()
-    deezer.playlist(genres[context["genre"]])
+    print(genres[context["genre"]])
+    t=deezer.Thread(target=deezer.playlist, args=[genres[context["genre"]]])
+    t.start()
     print(str(context))
     return context
 

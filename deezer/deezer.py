@@ -12,23 +12,26 @@ def play(track_id):
 
 def stop():
     global p
-    p.kill()
+    if p is not None:
+        p.kill()
     k.acquire()
-    sleep(0.5)
+    sleep(1)
     k.release()
 
 def playlist(l_tracks):
     for i_track in l_tracks:
         if k.locked():
-            break
+            continue
         if p is not None:
             while p.poll() is None:
                 if k.locked():
                     break
                 sleep(0.01)
-            play(i_track)
+            if not k.locked():
+                play(i_track)
         else:
-            play(i_track)
+            if not k.locked():
+                play(i_track)
 
 
 if __name__ == "__main__":
