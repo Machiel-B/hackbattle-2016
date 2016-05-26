@@ -5,13 +5,11 @@ import json
 
 config = None
 
-app = Flask(__name__)
+app = Flask(__name__, static_url_path='')
 
 @app.route('/')
-@app.route('/home/')
 def index():
-    
-	return render_template('index.html', settings=config)
+    return app.send_static_file('index.html')
 
 
 @app.route('/api/settings/', methods=['GET', 'POST', 'PATCH', 'PUT', 'DELETE'])
@@ -56,7 +54,7 @@ def add_header(response):
 def start_server(cfg={}):
     global config
     config = cfg
-    app.run(debug=True, threaded=True)
+    app.run(debug=True, threaded=True,)
 
 
 if __name__ == '__main__':
