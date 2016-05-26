@@ -12,6 +12,7 @@ from base64 import b64encode
 import witCommands
 import cStringIO
 import contextlib
+import json
 
 FLAC_CONV = 'flac -f'  # We need a WAV to FLAC converter. flac is available
                        # on Linux
@@ -20,13 +21,13 @@ WIT_SPEECH_API = 'https://api.wit.ai/speech?v=20160511'
 
 token = sys.argv[1]
 
-
+DEBUG = False
 # Microphone stream config.
 CHUNK = 1024  # CHUNKS of bytes to read each time from mic
 FORMAT = pyaudio.paInt16
 CHANNELS = 1
 RATE = 16000
-DEVICE_INDEX = 4
+DEVICE_INDEX = pyaudio.PyAudio().get_default_input_device_info()['index']
 
 THRESHOLD = 2500  # The threshold intensity that defines silence
                   # and noise signal (an int. lower than THRESHOLD is silence).
@@ -35,7 +36,7 @@ SILENCE_LIMIT = 2  # Silence limit in seconds. The max ammount of seconds where
                    # only silence is recorded. When this time passes the
                    # recording finishes and the file is delivered.
 
-PREV_AUDIO = 0.5  # Previous audio (in seconds) to prepend. When noise
+PREV_AUDIO = 0.9  # Previous audio (in seconds) to prepend. When noise
                   # is detected, how much of previously recorded audio is
                   # prepended. This helps to prevent chopping the beggining
                   # of the phrase.
@@ -125,7 +126,6 @@ def listen_for_speech(threshold=THRESHOLD, num_phrases=-1):
             print( "Finished")
             # The limit was reached, finish capture and deliver.
             #filename = save_speech(list(prev_audio) + audio2send, p)
-
             with contextlib.closing(
                 speech_to_wave(list(prev_audio) + audio2send, p)
             ) as wave_file:
@@ -171,6 +171,12 @@ def speech_to_wave(data, p):
     buffer.flush()
     buffer.seek(0)
 
+    if DEBUG:
+        with open('{}.wav'.format(time.time()), 'wb') as f:
+            f.write(buffer.read())
+
+        buffer.seek(0)
+
     return buffer
 
 
@@ -198,8 +204,8 @@ def wit_analyze(audio_file):
     try:
         p = urllib2.urlopen(req)
         response = p.read()
-        print(response)
-        res = eval(response.replace('true','True'))['_text']
+        decoded = json.loads(response)
+        res = decoded['_text']
         print(str(res))
     except urllib2.HTTPError, error:
         contents = error.read()
