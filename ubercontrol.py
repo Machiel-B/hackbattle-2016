@@ -28,8 +28,12 @@ def findRides(lat=52.386, lon=4.873, minCapacity=-1, maxCapacity=-1, maxPrice=-1
 
     for p in filteredProducts:
         response = api_client.get_pickup_time_estimates(lat, lon, p['product_id'])
-        time = response.json.get('times')[0]['estimate']
-        p['pickup_time'] = time / float(60)
+        try:
+            time = response.json.get('times')[0]['estimate']
+        except KeyError:
+            p['pickup_time'] = maxTime + 1
+        else:
+            p['pickup_time'] = time / float(60)
 
     filteredProducts = [p for p in filteredProducts if p['pickup_time'] <= maxTime]
 
