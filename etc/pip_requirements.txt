@@ -1,2 +1,4 @@
 wit
 pyaudio
+pyyaml
+uber_rides

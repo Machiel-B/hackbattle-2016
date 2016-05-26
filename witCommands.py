@@ -5,6 +5,9 @@ from deezer import deezer
 import lightcontrol
 from random import choice
 import json
+import ubercontrol
+import wave
+import pyaudio
 
 SESSION = 'make_this_random'
 main_context = {}
@@ -39,8 +42,46 @@ def mood_from_intent(intent):
     return
 
 def order_uber():
-    print('uber ordered')
+    ubers = ubercontrol.findRides()
+    print(ubers)
+    cars = len(ubers)
+    many_car = cars > 1
 
+    if cars:
+        if many_car:
+            say('there_are')
+        else:
+            say('there_is')
+
+        if cars > 5:
+            say('5_more')
+        else:
+            say(str(cars))
+
+        if many_car:
+            say('uber_cars')
+        else:
+            say('uber_car')
+
+def say(name):
+    wf = wave.open('speech/{name}.wav'.format(name=name), 'rb')
+    # create an audio object
+    p = pyaudio.PyAudio()
+
+    # open stream based on the wave object which has been input.
+    stream = p.open(format = p.get_format_from_width(wf.getsampwidth()),
+                    channels = wf.getnchannels(),
+                    rate = wf.getframerate(),
+                    output = True)
+
+    data = wf.readframes(1024)
+
+    while data != '':
+        stream.write(data)
+        data = wf.readframes(1024)
+
+    stream.close()
+    p.terminate()
 
 def merge(session_id, context, entities, msg):
     mood = first_entity_value(entities, 'mood')

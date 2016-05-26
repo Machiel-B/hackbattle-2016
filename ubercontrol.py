@@ -4,6 +4,7 @@ from uber_rides.session import Session
 
 
 def findRides(lat=52.386, lon=4.873, minCapacity=-1, maxCapacity=-1, maxPrice=-1, maxTime=30, shared=False):
+    print('uber?')
     session = Session(server_token='LfFtq8jnN1YYN0ZTeGetOvadi_DiCAk8nEForlLq')
     api_client = UberRidesClient(session)
     response = api_client.get_products(lat, lon)
