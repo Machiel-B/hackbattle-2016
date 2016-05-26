@@ -1,7 +1,10 @@
 import sys
 import time
 from wit import Wit
-
+from deezer import deezer
+import lightcontrol
+from random import choice
+import json
 
 SESSION = 'make_this_random'
 main_context = {}
@@ -62,13 +65,40 @@ def error(session_id, context, e):
     print(str(e))
 
 def change_lighting(session_id, context):
-    print(str(context))
-    context['lighting'] = 'bright'
+    moods = {
+        "love":"deep_red",
+        "horny":"deep_red",
+        "excited":"normal",
+        "relaxing":"sky_blue",
+        "angry":"dark_green",
+        "interested": "bright",
+        "bat_man": "dark_blue"
+    }
+    colour={
+        "deep_red": (1, 254, 125),
+        "normal": (0, 0, 254),
+        "sky_blue": (39000, 128, 50),
+        "dark_green": (27000, 254, 50),
+        "bright": (27000, 0, 254),
+        "dark_blue": (45000, 254, 20)
+    }
+    context['lighting'] = moods.get(context["mood"],"normal")
+    lightcontrol.setColor(*colour[context["lighting"]])
     return context
 
 def change_music(session_id, context):
-    context['song'] = 'i dunno an of the - cool new music'
-    context['genre'] = 'country rock'
+    moods = {
+        "love":["love"],
+        "horny":["porno", "love"],
+        "excited":["dance", "house"],
+        "relaxing":["chillout"],
+        "angry":["metal"]
+    }
+    jdata = json.load(open("config.json"))
+    genres = jdata["playlists"]
+    context['genre'] = choice(moods.get(context["mood"], "chill"))
+    deezer.stop()
+    deezer.playlist(genres[context["genre"]])
     print(str(context))
     return context
 

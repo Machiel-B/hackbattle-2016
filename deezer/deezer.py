@@ -15,6 +15,7 @@ def stop():
     p.kill()
     k.acquire()
     sleep(0.5)
+    k.release()
 
 def playlist(l_tracks):
     for i_track in l_tracks:
