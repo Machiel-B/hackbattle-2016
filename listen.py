@@ -10,6 +10,8 @@ import math
 import sys
 from base64 import b64encode
 import witCommands
+import cStringIO
+import contextlib
 
 FLAC_CONV = 'flac -f'  # We need a WAV to FLAC converter. flac is available
                        # on Linux
@@ -59,9 +61,6 @@ def audio_int(num_samples=50):
     print "Getting intensity values from mic."
     p = pyaudio.PyAudio()
 
-
-
-
     stream = p.open(format=FORMAT,
                     channels=CHANNELS,
                     rate=RATE,
@@ -100,7 +99,7 @@ def listen_for_speech(threshold=THRESHOLD, num_phrases=-1):
                     frames_per_buffer=CHUNK)
 
     print('rate');
-    print(p.get_device_info_by_index(4)['defaultSampleRate'])
+    print(p.get_device_info_by_index(DEVICE_INDEX)['defaultSampleRate'])
     print ("* Listening mic. ")
     audio2send = []
     cur_data = ''  # current chunk  of audio data
@@ -114,8 +113,9 @@ def listen_for_speech(threshold=THRESHOLD, num_phrases=-1):
 
     while (num_phrases == -1 or n > 0):
         cur_data = read_chunk_safe(stream, CHUNK)
+        #print(len(cur_data))
         slid_win.append(math.sqrt(abs(audioop.avg(cur_data, 4))))
-        #print slid_win[-1]
+
         if(sum([x > THRESHOLD for x in slid_win]) > 0):
             if(not started):
                 print( "Starting record of phrase")
@@ -124,24 +124,28 @@ def listen_for_speech(threshold=THRESHOLD, num_phrases=-1):
         elif (started is True):
             print( "Finished")
             # The limit was reached, finish capture and deliver.
-            filename = save_speech(list(prev_audio) + audio2send, p)
-            # Send file to Google and get response
-            r = stt_google_wav(filename)
-            if num_phrases == -1:
-                print(r)
-                witCommands.talk(r)
+            #filename = save_speech(list(prev_audio) + audio2send, p)
 
-            else:
-                response.append(r)
-            # Remove temp file. Comment line to review.
-            os.remove(filename)
-            # Reset all
-            started = False
-            slid_win = deque(maxlen=SILENCE_LIMIT * rel)
-            prev_audio = deque(maxlen=0.5 * rel)
-            audio2send = []
-            n -= 1
-            print "Listening ..."
+            with contextlib.closing(
+                speech_to_wave(list(prev_audio) + audio2send, p)
+            ) as wave_file:
+                # Send file to Wit and get response
+                r = wit_analyze(wave_file)
+                if num_phrases == -1:
+                    print(r)
+                    witCommands.talk(r)
+                else:
+                    response.append(r)
+
+                # Remove temp file. Comment line to review.
+              #  os.remove(filename)
+                # Reset all
+                started = False
+                slid_win = deque(maxlen=SILENCE_LIMIT * rel)
+                prev_audio = deque(maxlen=0.5 * rel)
+                audio2send = []
+                n -= 1
+                print "Listening ..."
         else:
             prev_audio.append(cur_data)
 
@@ -152,52 +156,43 @@ def listen_for_speech(threshold=THRESHOLD, num_phrases=-1):
     return response
 
 
-def save_speech(data, p):
+def speech_to_wave(data, p):
     """ Saves mic data to temporary WAV file. Returns filename of saved
         file """
 
-    filename = 'output_'+str(int(time.time()))
-    # writes data to WAV file
+    buffer = cStringIO.StringIO()
     data = ''.join(data)
-    wf = wave.open(filename + '.wav', 'wb')
-    wf.setnchannels(1)
-    wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
-    wf.setframerate(16000)  # TODO make this value a function parameter?
-    wf.writeframes(data)
-    wf.close()
-    return filename + '.wav'
+    with contextlib.closing(wave.open(buffer, 'wb')) as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(p.get_sample_size(pyaudio.paInt16))
+        wf.setframerate(16000)  # TODO make this value a function parameter?
+        wf.writeframes(data)
+
+    buffer.flush()
+    buffer.seek(0)
+
+    return buffer
 
 
-def stt_google_wav(audio_fname):
+def wit_analyze(audio_file):
     """ Sends audio file (audio_fname) to Google's text to speech
         service and returns service's response. We need a FLAC
         converter if audio is not FLAC (check FLAC_CONV). """
 
-    print "Sending ", audio_fname
-    #Convert to flac first
-    filename = audio_fname
-    del_flac = False
-    # if 'flac' not in filename:
-    #     del_flac = True
-    #     print "Converting to flac"
-    #     print FLAC_CONV + filename
-    #     os.system(FLAC_CONV + ' ' + filename)
-    #     filename = filename.split('.')[0] + '.flac'
-
-    f = open(filename, 'rb')
-    wav_cont = f.read()
-    f.close()
+    print "Sending ", audio_file
 
     auth = 'Bearer %s' % (token)
 
-    # print(wav_cont)
-
-
     # Headers. A common Chromium (Linux) User-Agent
-    hrs = {"User-Agent": "Mozilla/5.0 (X11; Linux i686) AppleWebKit/535.7 (KHTML, like Gecko) Chrome/16.0.912.63 Safari/535.7", 'Content-Type': 'audio/wav', 'Authorization': auth, 'Accept': '*/*'
-}
+    hrs = {
+        'User-Agent': "Mozilla/5.0 (X11; Linux i686) AppleWebKit/535.7 (KHTML, "
+                      "like Gecko) Chrome/16.0.912.63 Safari/535.7",
+        'Content-Type': 'audio/wav',
+        'Authorization': auth,
+        'Accept': '*/*'
+    }
 
-    req = urllib2.Request(WIT_SPEECH_API,  data=wav_cont, headers=hrs)
+    req = urllib2.Request(WIT_SPEECH_API,  data=audio_file.read(), headers=hrs)
     print "Sending request to WIT"
 
     try:
@@ -210,9 +205,6 @@ def stt_google_wav(audio_fname):
         contents = error.read()
         print(contents)
         res = None
-
-    if del_flac:
-        os.remove(filename)  # Remove temp file
 
     return res
 
